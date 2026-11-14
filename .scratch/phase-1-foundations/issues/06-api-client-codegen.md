@@ -1,4 +1,4 @@
-Status: open
+Status: done
 Type: chore
 Acceptance: just gen regenerates packages/api-client; CI fails on drift
 

@@ -1,4 +1,4 @@
-Status: open
+Status: done
 Type: feature
 Acceptance: Playwright smoke: page renders and shows api status (up/down)
 

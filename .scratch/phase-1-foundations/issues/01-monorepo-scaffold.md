@@ -1,4 +1,4 @@
-Status: open
+Status: done
 Type: chore
 Acceptance: just --list works; uv sync and pnpm install succeed
 

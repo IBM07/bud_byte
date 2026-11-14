@@ -1,4 +1,4 @@
-Status: open
+Status: done
 Type: feature
 Acceptance: pytest: healthz 200, readyz reflects DB/Redis state, settings validation
 

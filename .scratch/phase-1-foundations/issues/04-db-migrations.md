@@ -1,4 +1,4 @@
-Status: open
+Status: done
 Type: feature
 Acceptance: integration test: migrations apply on fresh pgvector DB; advisory lock prevents double-run
 

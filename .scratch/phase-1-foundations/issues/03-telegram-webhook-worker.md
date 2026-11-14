@@ -1,4 +1,4 @@
-Status: open
+Status: done
 Type: feature
 Acceptance: pytest: bad secret 401, duplicate update ignored, job enqueued; worker replies pong + DB time (mocked Telegram)
 

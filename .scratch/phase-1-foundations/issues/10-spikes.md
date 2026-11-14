@@ -1,4 +1,4 @@
-Status: open
+Status: done
 Type: research
 Acceptance: docs/spikes/*.md with findings + decision
 

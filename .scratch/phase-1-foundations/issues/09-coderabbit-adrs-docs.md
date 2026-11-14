@@ -1,4 +1,4 @@
-Status: open
+Status: done
 Type: chore
 Acceptance: .coderabbit.yaml valid; 3 ADRs; CLAUDE.md updated; deploy runbook
 
