@@ -5,7 +5,9 @@
 - Remote control: the user must be able to leave the PC and control EVERYTHING from Telegram on their phone (memory, tasks, nudges, desktop actions). Treat Telegram as a first-class client, not an add-on.
 - Clients: Windows desktop app (+ local desktop daemon), web app, Telegram bot.
 - Backend: HOSTED Python service (FastAPI + LangGraph multi-agent, tool calling, RAG). Local-run mode for users comes after launch.
-- LLMs: multi-provider fallback chain (Groq, Cerebras, Gemini, OpenRouter :free, NVIDIA NIM, GitHub Models, Cloudflare Workers AI). Never hard-code one provider.
+- Name: BudByte. Repo: `IBM07/budbyte` (public). Plan: `C:\Users\Ibrahim Aejaz\.claude\plans\you-are-s-senior-greedy-zebra.md`. Work ONE phase at a time; stop and report after each.
+- LLMs: only via `budbyte_api.llm.gateway` (ADR 0002). Chain: Groq, Gemini, Mistral, OpenRouter :free, NVIDIA NIM, Cloudflare Workers AI. Cerebras (trial only) and GitHub Models (retired) are NOT free. Never hard-code one provider.
+- Hosting: Northflank Sandbox (api, worker, 2 crons, Redis) + Neon Postgres/pgvector + Vercel web (ADR 0001). No Cloudflare Worker.
 - Cost: everything FREE, no credit card. Sleeping hosts / paused DBs are acceptable. Flag anything that silently needs a card.
 - Privacy: disclosed upfront (data may be stored); not a design constraint.
 - Open source (MIT) intended. Solo dev.
@@ -17,6 +19,14 @@
 Local markdown in `.scratch/` with a self-improving retro loop at the end of every phase. See `docs/agents/issue-tracker.md`.
 ### Domain docs
 Single-context: `GLOSSARY.md` + `docs/adr/` at the root, created lazily. See `docs/agents/domain.md`.
+
+## Repo map
+- `services/api/src/budbyte_api/`: FastAPI app (`main.py`), worker (`worker.py`), routes, Telegram client, migrations (run on api boot under advisory lock).
+- `apps/web`: Next.js 16 + Cache Components. Read `apps/web/AGENTS.md` and the bundled docs in `node_modules/next/dist/docs/` before writing Next code; uncached reads go inside `<Suspense>`.
+- `packages/api-client`: generated; run `just gen` after any API change (CI fails on drift).
+- `infra/`, `docs/adr/`, `docs/runbooks/deploy.md`, `docs/spikes/`.
+- Commands: `just check` (all local gates), `just e2e`, `just gen`. Integration tests need `BUDBYTE_TEST_DATABASE_URL` + `BUDBYTE_TEST_REDIS_URL` (run in CI).
+- Git flow: `feat/*` branch -> local gates + /code-review + /security-review -> commit -> USER pushes -> PR -> CI + CodeRabbit (`.coderabbit.yaml`) -> resolve -> squash-merge.
 
 ## Process levels
 - Feature (new behaviour, >1 file, any agent/LLM/UI/security change): full spine below.
@@ -47,4 +57,4 @@ brainstorming -> writing-plans -> executing-plans / subagent-driven-development 
 
 ## Installed tooling (2026-11-14)
 Plugins (project scope): superpowers, frontend-design, pyright-lsp, context7. Project skills in `.claude/skills/`: Matt Pocock (grill-with-docs, grilling, domain-modeling, codebase-design, improve-codebase-architecture, diagnosing-bugs, matt-code-review, setup-matt-pocock-skills, retro, writing-for-agents), ui-ux-pro-max, playwright-cli, webapp-testing. MCP (`.mcp.json`): playwright, shadcn (browse/add shadcn components; add Aceternity + Magic UI registries to `components.json` when the web app is scaffolded). Built-in: /code-review, /security-review, skill-creator, claude-api.
-Deferred: Playwright test runner (init when the web app is scaffolded), deploy skills (when we reach deploy), to-spec/to-tickets (only if GitHub Issues).
+Playwright test runner lives in `apps/web` (mock API in `e2e/`). CodeRabbit reviews PRs (GitHub App, installed by the user). Deferred: deploy skills, to-spec/to-tickets (only if GitHub Issues).
