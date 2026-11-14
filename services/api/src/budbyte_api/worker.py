@@ -16,7 +16,7 @@ from redis.exceptions import RedisError
 from budbyte_api.db import db_now as engine_now
 from budbyte_api.db import make_engine
 from budbyte_api.logging import configure_logging
-from budbyte_api.main import init_sentry
+from budbyte_api.observability import init_sentry
 from budbyte_api.queue import Job, dequeue_with_lane, enqueue
 from budbyte_api.redis_conn import close, redis_from_url
 from budbyte_api.settings import Settings, secret

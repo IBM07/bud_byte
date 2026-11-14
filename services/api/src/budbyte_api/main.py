@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-import sentry_sdk
 import structlog
 from fastapi import FastAPI
 from redis.asyncio import Redis
@@ -16,23 +15,12 @@ from budbyte_api import __version__
 from budbyte_api.db import make_engine
 from budbyte_api.logging import configure_logging
 from budbyte_api.migrate import run_migrations
+from budbyte_api.observability import init_sentry
 from budbyte_api.redis_conn import close, ping, redis_from_url
 from budbyte_api.routes import health, telegram
 from budbyte_api.settings import Settings, secret
 
 log = structlog.get_logger()
-
-
-def init_sentry(settings: Settings) -> None:
-    dsn = secret(settings.sentry_dsn)
-    if dsn:
-        sentry_sdk.init(
-            dsn=dsn,
-            environment=settings.environment,
-            release=f"budbyte-api@{__version__}",
-            traces_sample_rate=0.05,
-            send_default_pii=False,
-        )
 
 
 def create_app(
