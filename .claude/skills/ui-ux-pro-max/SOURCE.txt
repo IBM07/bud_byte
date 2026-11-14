@@ -1,0 +1,1 @@
+Source: github.com/nextlevelbuilder/ui-ux-pro-max-skill @ 6ae86f61f520d6ca229d2f40e070410638c908c5 (Tue Nov 10 20:03:57 2026 +0700), skill folder only

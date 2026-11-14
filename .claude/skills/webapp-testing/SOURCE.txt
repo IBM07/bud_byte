@@ -1,0 +1,1 @@
+Source: github.com/anthropics/skills @ 2c5958ecac7cee2b583967a2c4981d0f4a75c579 (Fri Nov 6 14:32:28 2026 -0800), skills/webapp-testing

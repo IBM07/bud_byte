@@ -1,0 +1,42 @@
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
+.playwright/
+playwright-report/
+test-results/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Node / desktop / workers
+node_modules/
+.wrangler/
+.next/
+out/
+target/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code local-only settings
+.claude/settings.local.json
