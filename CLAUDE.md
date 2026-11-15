@@ -50,7 +50,7 @@ brainstorming -> writing-plans -> executing-plans / subagent-driven-development 
 ## Hard rules
 - AFTER EVERY PHASE: update Claude memory (what was built, decisions, gotchas, next) and this file if rules changed.
 - Ask before installing any plugin/skill/package-manager-global tool; review third-party skills first.
-- Never push, deploy to production, delete data, or type credentials without explicit per-action confirmation. A PreToolUse hook (`.claude/hooks/block-dangerous-git.py`) blocks git push / reset --hard / clean -f / branch -D.
+- Never push, deploy to production, delete data, or type credentials without explicit per-action confirmation. A PreToolUse hook (`.claude/hooks/block-dangerous-git.py`) asks the user before any normal `git push` (approve in the prompt) and blocks force-push, remote branch delete, reset --hard, clean -f, branch -D.
 - Deploy: tests + security review pass -> preview -> user confirms -> production -> check logs.
 - Desktop/remote actions: allowlisted Telegram user only; risky actions require explicit approval (inline button / dialog); every action logged.
 - Secrets live in env vars / `.env` (gitignored), never in code or logs.
