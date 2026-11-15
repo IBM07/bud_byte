@@ -3,8 +3,8 @@
 Everything here is free and needs no card. **Steps marked 👤 need you**, because they involve account sign-ups, logins, secrets or pushing. Claude never types credentials or pushes.
 
 ## 0. GitHub repo 👤
-1. Create a **public** repo `IBM07/budbyte`. Public matters: it keeps Actions and CodeRabbit free.
-   - Or ask Claude to run `gh repo create IBM07/budbyte --public --source . --remote origin`, then confirm.
+1. Create a **public** repo `IBM07/bud_byte`. Public matters: it keeps Actions and CodeRabbit free.
+   - Done 2026-11-15: the repo exists and `origin` points at it.
 2. Push yourself: `git push -u origin main` and `git push -u origin feat/phase-1-foundations`.
 3. Install the **CodeRabbit** GitHub App on the repo (https://coderabbit.ai, sign in with GitHub as IBM07). It reads `.coderabbit.yaml` automatically.
 4. Open a PR from `feat/phase-1-foundations` to `main`. CI and CodeRabbit run on it.

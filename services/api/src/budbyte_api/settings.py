@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["development", "test", "staging", "production"]
@@ -29,6 +29,23 @@ class Settings(BaseSettings):
 
     sentry_dsn: SecretStr | None = None
     web_origin: str = "http://localhost:3000"
+
+    @field_validator(
+        "database_url",
+        "redis_url",
+        "telegram_bot_token",
+        "telegram_webhook_secret",
+        "telegram_path_secret",
+        "sentry_dsn",
+        mode="before",
+    )
+    @classmethod
+    def _blank_means_unset(cls, value: Any, info: ValidationInfo) -> Any:
+        """A blank `KEY=` line in .env means "not set", not "set to an empty string"."""
+        raw = value.get_secret_value() if isinstance(value, SecretStr) else value
+        if isinstance(raw, str) and not raw.strip():
+            return cls.model_fields[info.field_name or ""].default
+        return value
 
     @model_validator(mode="after")
     def _require_secrets_outside_dev(self) -> Self:

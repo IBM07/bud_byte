@@ -5,7 +5,7 @@
 - Remote control: the user must be able to leave the PC and control EVERYTHING from Telegram on their phone (memory, tasks, nudges, desktop actions). Treat Telegram as a first-class client, not an add-on.
 - Clients: Windows desktop app (+ local desktop daemon), web app, Telegram bot.
 - Backend: HOSTED Python service (FastAPI + LangGraph multi-agent, tool calling, RAG). Local-run mode for users comes after launch.
-- Name: BudByte. Repo: `IBM07/budbyte` (public). Plan: `C:\Users\Ibrahim Aejaz\.claude\plans\you-are-s-senior-greedy-zebra.md`. Work ONE phase at a time; stop and report after each.
+- Name: BudByte. Repo: `IBM07/bud_byte` (public). Plan: `C:\Users\Ibrahim Aejaz\.claude\plans\you-are-s-senior-greedy-zebra.md`. Work ONE phase at a time; stop and report after each.
 - LLMs: only via `budbyte_api.llm.gateway` (ADR 0002). Chain: Groq, Gemini, Mistral, OpenRouter :free, NVIDIA NIM, Cloudflare Workers AI. Cerebras (trial only) and GitHub Models (retired) are NOT free. Never hard-code one provider.
 - Hosting: Northflank Sandbox (api, worker, 2 crons, Redis) + Neon Postgres/pgvector + Vercel web (ADR 0001). No Cloudflare Worker.
 - Cost: everything FREE, no credit card. Sleeping hosts / paused DBs are acceptable. Flag anything that silently needs a card.

@@ -30,7 +30,7 @@ Not yet verified (need the user's accounts):
 |---|---|---|
 | 1 | Review caught reliability bugs (delivery semantics, pooler compatibility, error paths) that tests hadn't covered | Added "reliability" rules to the `services/api` path instructions in `.coderabbit.yaml`, so every PR is checked for them |
 | 2 | Logging config captured `sys.stdout` at configure time, giving order-dependent test failures | Fixed in code (stdout resolved at emit time). Regression covered by the full-suite run in CI. |
-| 3 | `/security-review` fails without an `origin` remote | Will work once `IBM07/budbyte` exists (user step). Until then, a manual checklist. |
+| 3 | `/security-review` fails without an `origin` remote | Will work once `IBM07/bud_byte` exists (user step). Until then, a manual checklist. |
 | 4 | Git guardrail blocks commit messages that merely mention `git push` / `reset --hard` | The permission system correctly denied Claude editing a safety hook. **User decision:** approve a narrow change (ignore commit-message text only), or keep the `git commit -F <file>` workaround. |
 | 5 | `uv` / `just` not on PATH in the session that installed them | Restart the terminal or VS Code once. Documented in `README.md` prerequisites. |
 | 6 | Worker loses an in-flight job on a hard crash (at-most-once) | Ticket `phase-2/at-least-once-queue`: BLMOVE processing list + reaper |

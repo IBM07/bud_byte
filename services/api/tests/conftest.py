@@ -12,6 +12,9 @@ from pydantic import SecretStr
 from budbyte_api.main import create_app
 from budbyte_api.settings import Settings
 
+# Tests must never pick up the developer's real .env (DB URLs, Sentry DSN, bot tokens).
+Settings.model_config["env_file"] = None
+
 PATH_SECRET = "path-secret-123"
 HEADER_SECRET = "header-secret-456"
 
