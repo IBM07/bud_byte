@@ -9,7 +9,8 @@ services:
     image: pgvector/pgvector:0.8.7-pg17
     environment:
       POSTGRES_USER: budbyte
-      POSTGRES_PASSWORD: budbyte
+      # Throwaway local-only password; override with LOCAL_PG_PASSWORD if you like.
+      POSTGRES_PASSWORD: ${LOCAL_PG_PASSWORD:-budbyte}
       POSTGRES_DB: budbyte
     ports: ["5432:5432"]
     volumes: [db-data:/var/lib/postgresql/data]
@@ -31,7 +32,7 @@ services:
     build: { context: .., dockerfile: infra/Dockerfile }
     env_file: [../.env]
     environment:
-      BUDBYTE_DATABASE_URL: postgresql://budbyte:budbyte@db:5432/budbyte
+      BUDBYTE_DATABASE_URL: postgresql://budbyte:${LOCAL_PG_PASSWORD:-budbyte}@db:5432/budbyte
       BUDBYTE_REDIS_URL: redis://redis:6379/0
     ports: ["8000:8000"]
     depends_on:
@@ -43,7 +44,7 @@ services:
     command: ["budbyte-worker"]
     env_file: [../.env]
     environment:
-      BUDBYTE_DATABASE_URL: postgresql://budbyte:budbyte@db:5432/budbyte
+      BUDBYTE_DATABASE_URL: postgresql://budbyte:${LOCAL_PG_PASSWORD:-budbyte}@db:5432/budbyte
       BUDBYTE_REDIS_URL: redis://redis:6379/0
     depends_on:
       api: { condition: service_started }
