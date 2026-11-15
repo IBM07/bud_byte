@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit AI review config. Free for public open-source repos.
+language: en-US
+tone_instructions: "Be direct and specific. Lead with correctness and security issues; skip praise."
+early_access: false
+
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+  sequence_diagrams: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches: ["main"]
+  path_filters:
+    - "!**/pnpm-lock.yaml"
+    - "!**/uv.lock"
+    - "!packages/api-client/src/schema.d.ts"
+    - "!packages/api-client/openapi.json"
+    - "!.claude/skills/**"
+    - "!**/*.min.*"
+  path_instructions:
+    - path: "services/api/**/*.py"
+      instructions: |
+        Python 3.12, FastAPI, async SQLAlchemy, pyright strict. Flag: blocking I/O in async code,
+        missing timeouts on network calls, secrets in logs or error messages, unscoped queries
+        (every per-user query must filter by user_id), and broad excepts that swallow errors
+        outside the worker's top-level job loop.
+        Reliability (from Phase 1 retro): side-effect ordering (never mark "done/deduped" before
+        the work is durably queued), queue consumers must survive Redis/DB outages and bad
+        payloads, DB code must work behind a transaction-mode pooler (no session-level state
+        such as session advisory locks or cached prepared statements), and secrets must be
+        scrubbed from logs AND Sentry events.
+    - path: "services/api/src/budbyte_api/routes/telegram.py"
+      instructions: |
+        Webhook must stay fast (no LLM or slow I/O), verify the secret header with constant-time
+        compare, de-duplicate update_id, and ignore non-private chats.
+    - path: "services/api/src/budbyte_api/{llm,graphs}/**"
+      instructions: |
+        LLM calls only through the gateway. Every LLM output parsed into a Pydantic model.
+        LangGraph nodes before interrupt() must be idempotent. Untrusted content must be wrapped
+        and must never trigger side-effect tools without user intent in the current turn.
+    - path: "services/api/src/budbyte_api/migrations/**"
+      instructions: "Expand-then-contract only. No destructive changes without a two-step plan."
+    - path: "packages/protocol/**"
+      instructions: "Desktop protocol: every envelope signed, expiring, nonce-protected. Breaking changes need a version bump."
+    - path: "apps/**"
+      instructions: |
+        Follow docs/agents/ui.md: animate only transform/opacity, respect prefers-reduced-motion,
+        WCAG 2.2 AA, Radix/shadcn primitives, design tokens only (no one-off colors/durations),
+        loading/empty/error states for every async view.
+    - path: "**/tests/**"
+      instructions: "Tests should assert behaviour, not implementation. No sleeps; no real network."
+    - path: ".github/workflows/**"
+      instructions: "Least-privilege permissions, pinned major versions, no secrets echoed."
+  tools:
+    ruff:
+      enabled: true
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
+    hadolint:
+      enabled: true
+    eslint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    yamllint:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CLAUDE.md"
+      - "docs/agents/*.md"
+      - "docs/adr/*.md"

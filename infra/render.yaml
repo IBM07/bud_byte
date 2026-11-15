@@ -1,0 +1,29 @@
+# FALLBACK host only (primary is Northflank, see docs/runbooks/deploy.md).
+# Render free: one web service, sleeps after 15 min idle (desktop daemon WebSocket keeps it awake),
+# no free workers/cron, free Postgres deleted after 30 days -> keep using Neon.
+# In fallback mode the worker loop must run in-process (planned flag, Phase 2) and crons
+# move to scheduled GitHub Actions calling authenticated endpoints.
+services:
+  - type: web
+    name: budbyte-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./infra/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: BUDBYTE_ENVIRONMENT
+        value: production
+      - key: BUDBYTE_DATABASE_URL
+        sync: false
+      - key: BUDBYTE_REDIS_URL
+        sync: false
+      - key: BUDBYTE_TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: BUDBYTE_TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: BUDBYTE_TELEGRAM_PATH_SECRET
+        sync: false
+      - key: BUDBYTE_SENTRY_DSN
+        sync: false
