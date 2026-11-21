@@ -80,7 +80,12 @@ async def _claim_and_enqueue(redis: Any, dedupe_key: str, job: dict[str, Any]) -
             pipe.rpush(Lane.INTERACTIVE.key, encode_job(job))
             await pipe.execute()
         except WatchError:
-            return False  # a concurrent delivery of the same update claimed it first
+            # Usually a concurrent delivery of the same update claimed it first, but redis-py
+            # also raises WatchError when the connection drops mid-WATCH. Ack as a duplicate
+            # only when the mark really exists; otherwise fail (500) so Telegram retries.
+            if await redis.exists(dedupe_key):
+                return False
+            raise
     return True
 
 

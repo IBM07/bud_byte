@@ -1,3 +1,4 @@
+import io
 import logging
 import sys
 
@@ -31,12 +32,33 @@ def test_access_log_record_has_webhook_path_secret_scrubbed() -> None:
     assert "s3cr3t" not in record.getMessage()
 
 
-def test_uvicorn_loggers_redact_even_with_their_own_handlers() -> None:
+def test_uvicorn_default_access_log_is_redacted_and_still_formats(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Plain `uvicorn --factory` (default log config) gives uvicorn.access its own handler with
-    # propagate=False, so a filter on the root handler alone would never see access lines.
+    # propagate=False and an AccessFormatter that unpacks record.args into 5 values.
+    from uvicorn.logging import AccessFormatter
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(AccessFormatter('%(client_addr)s - "%(request_line)s" %(status_code)s'))
+    access = logging.getLogger("uvicorn.access")
+    monkeypatch.setattr(access, "handlers", [handler])
+    monkeypatch.setattr(access, "propagate", False)
+    monkeypatch.setattr(access, "filters", [])
     configure_logging("INFO", json=True)
-    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
-        assert any(isinstance(f, RedactingFilter) for f in logging.getLogger(name).filters)
+
+    errors: list[BaseException | None] = []
+
+    def record_error(_record: logging.LogRecord) -> None:
+        errors.append(sys.exc_info()[1])
+
+    monkeypatch.setattr(handler, "handleError", record_error)
+    access.info('%s - "%s %s HTTP/%s" %d', "1.2.3.4:5", "POST", "/tg/webhook/s3cr3t", "1.1", 200)
+    out = stream.getvalue()
+    assert errors == []
+    assert "s3cr3t" not in out
+    assert '"POST /tg/webhook/[REDACTED] HTTP/1.1" 200' in out
 
 
 def test_bot_token_is_redacted_from_exception_text(capsys: pytest.CaptureFixture[str]) -> None:

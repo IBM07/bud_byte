@@ -17,24 +17,21 @@ test("home page renders and shows API status", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-// The status pulse scales out ("ping") normally; under prefers-reduced-motion the movement
-// is replaced by an opacity fade ("pulse"), so the live feedback stays (docs/agents/ui.md).
-for (const [reducedMotion, animation] of [
-  ["no-preference", "ping"],
-  ["reduce", "pulse"],
+// Normally a ring scales out behind the dot ("ping"). Under prefers-reduced-motion there is
+// no movement, but the visible dot fades ("pulse"), so live feedback stays (docs/agents/ui.md).
+for (const [reducedMotion, ring, dot] of [
+  ["no-preference", "ping", "none"],
+  ["reduce", "none", "pulse"],
 ] as const) {
-  test(`status pulse animation is "${animation}" with reducedMotion=${reducedMotion}`, async ({
+  test(`status indicator with reducedMotion=${reducedMotion}: ring ${ring}, dot ${dot}`, async ({
     browser,
   }) => {
     const context = await browser.newContext({ reducedMotion });
     const page = await context.newPage();
     await page.goto("/");
-    const pulse = page
-      .getByRole("main")
-      .getByTestId("api-status")
-      .locator("span[aria-hidden] > span")
-      .first();
-    await expect(pulse).toHaveCSS("animation-name", animation);
+    const parts = page.getByRole("main").getByTestId("api-status").locator("span[aria-hidden] > span");
+    await expect(parts.nth(0)).toHaveCSS("animation-name", ring);
+    await expect(parts.nth(1)).toHaveCSS("animation-name", dot);
     await context.close();
   });
 }

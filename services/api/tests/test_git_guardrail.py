@@ -67,6 +67,20 @@ def _decide(command: str) -> str:
         'bash -c "git push -f origin main"',  # nested shell string
         "git status; git push -f",
         "git status\ngit push -f",
+        # Review round 3.
+        "git re\\\nset --hard",  # continuation inside a word: bash joins it
+        "git `\n  reset --hard",  # PowerShell backtick continuation
+        "git restore ./",
+        "git checkout -- ./",
+        "git restore :/",  # whole worktree from the top
+        "git restore -sSTABLE .",  # attached --source value is not --staged
+        "git clean --for -d",  # unique long-option prefix of --force
+        "git reset --har",
+        "git push --forc origin main",
+        'echo "$(git reset --hard)"',  # command substitution inside double quotes
+        "x=$(git push -f)",
+        "cat <<EOF && git push -f\nbody\nEOF",  # command after a heredoc on its header line
+        "cat <<EOF\n$(git reset --hard)\nEOF",  # unquoted heredoc runs substitutions
     ],
 )
 def test_destructive_git_is_blocked(command: str) -> None:
@@ -92,6 +106,7 @@ def test_destructive_git_is_blocked(command: str) -> None:
         'git -c core.sshCommand="ssh -i /tmp/id" push origin main',  # partially quoted value
         "git -C/cabal push origin main",  # attached option value
         "git --no-pager -C . push",
+        "git push --follow-tags origin main",  # starts like --force but is not a prefix of it
     ],
 )
 def test_normal_push_asks_the_user(command: str) -> None:
@@ -110,6 +125,10 @@ def test_normal_push_asks_the_user(command: str) -> None:
         "git clean -n",  # dry run
         "git checkout -- src/app.py",  # restoring one named file is not a wholesale discard
         "git restore --staged src/app.py",
+        "git restore --staged .",  # only unstages
+        "git restore -S .",
+        "git clean -n -d",
+        "git log --format=%H -1",
         "echo 'git push --force is blocked'",  # text, not a git invocation
         # A heredoc body is data: words like "git push --force" in a commit message are not run.
         "git commit -F - <<'EOF'\nfix: guard git push --force\n\ngit reset --hard is blocked\nEOF",

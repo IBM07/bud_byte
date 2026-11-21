@@ -112,13 +112,41 @@ async def test_rate_limit_counter_always_carries_a_ttl(
 async def test_duplicate_retry_does_not_spend_rate_limit_quota(
     client: httpx.AsyncClient, fake_redis: fakeredis.FakeAsyncRedis
 ) -> None:
-    for _ in range(3):
-        await client.post(
+    from budbyte_api.routes.telegram import CHAT_RATE_LIMIT_PER_MINUTE
+
+    async def send(update_id: int) -> None:
+        r = await client.post(
             f"/tg/webhook/{PATH_SECRET}",
-            json=tg_update(update_id=400, chat_id=99),
+            json=tg_update(update_id=update_id, chat_id=99),
             headers={HDR: HEADER_SECRET},
         )
-    assert await fake_redis.get("rl:tg:chat:99") == "1"
+        assert r.status_code == 200
+
+    for _ in range(3):
+        await send(400)  # one update, delivered three times
+    for i in range(1, CHAT_RATE_LIMIT_PER_MINUTE):
+        await send(400 + i)  # the rest of the quota is still usable
+    assert len(await _queued(fake_redis)) == CHAT_RATE_LIMIT_PER_MINUTE
+    await send(999)  # one over the limit
+    assert len(await _queued(fake_redis)) == CHAT_RATE_LIMIT_PER_MINUTE
+
+
+async def test_redis_failure_during_claim_is_a_500_not_a_silent_duplicate(
+    client: httpx.AsyncClient, fake_redis: fakeredis.FakeAsyncRedis, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # redis-py raises WatchError when the connection drops while a key is watched. That is not
+    # proof of a duplicate: acking it with 200 would make Telegram drop the update for good.
+    from redis.exceptions import WatchError
+
+    async def watch_drops(self: Pipeline, *names: object) -> None:
+        raise WatchError("A ConnectionError occurred while watching one or more keys")
+
+    monkeypatch.setattr(Pipeline, "watch", watch_drops)
+    with pytest.raises(WatchError):
+        await client.post(
+            f"/tg/webhook/{PATH_SECRET}", json=tg_update(update_id=23), headers={HDR: HEADER_SECRET}
+        )
+    assert await _queued(fake_redis) == []
 
 
 async def test_wrong_path_with_invalid_body_is_still_404(client: httpx.AsyncClient) -> None:

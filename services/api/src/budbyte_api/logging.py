@@ -40,6 +40,10 @@ class RedactingFilter(logging.Filter):
     """Redacts secrets (bot tokens, webhook path) from stdlib records (uvicorn, httpx...)."""
 
     def filter(self, record: logging.LogRecord) -> bool:
+        # Redact inside the args first and keep them a tuple: uvicorn's AccessFormatter
+        # unpacks record.args into (client, method, path, http_version, status).
+        if isinstance(record.args, tuple):
+            record.args = tuple(redact_text(a) if isinstance(a, str) else a for a in record.args)
         message = record.getMessage()
         redacted = redact_text(message)
         if record.exc_info:
