@@ -68,12 +68,30 @@ async def test_failed_job_is_requeued_until_max_attempts() -> None:
     r = fakeredis.FakeAsyncRedis(decode_responses=True)
     await enqueue(r, Lane.INTERACTIVE, {"type": "tg.message", "chat_id": 1, "text": "x"})
 
+    calls = 0
+
     async def failing(*_a: object, **_k: object) -> None:
+        nonlocal calls
+        calls += 1
         raise RuntimeError("telegram timeout")
 
     for _ in range(MAX_ATTEMPTS + 2):
         await process_one(r, handler=failing, block_seconds=0.1)
+    assert calls == MAX_ATTEMPTS
     assert await dequeue(r, block_seconds=1) is None  # dropped after MAX_ATTEMPTS, not forever
+
+
+def test_redis_client_has_bounded_socket_timeouts() -> None:
+    import inspect
+
+    from budbyte_api.redis_conn import redis_from_url
+    from budbyte_api.worker import process_one
+
+    default_block = float(inspect.signature(process_one).parameters["block_seconds"].default)
+    kwargs = redis_from_url("redis://localhost:6379/0").connection_pool.connection_kwargs
+    assert kwargs["socket_connect_timeout"] is not None
+    # Must outlast an empty BLPOP, or every idle poll would raise TimeoutError.
+    assert kwargs["socket_timeout"] > default_block
 
 
 async def test_bad_payload_does_not_crash_the_loop() -> None:

@@ -68,6 +68,46 @@ async def test_non_message_update_is_acknowledged_but_not_enqueued(
     assert await _queued(fake_redis) == []
 
 
+async def test_group_chat_message_is_acknowledged_but_not_enqueued(
+    client: httpx.AsyncClient, fake_redis: fakeredis.FakeAsyncRedis
+) -> None:
+    update = tg_update(update_id=12)
+    update["message"]["chat"] = {"id": 5, "type": "group"}
+    r = await client.post(f"/tg/webhook/{PATH_SECRET}", json=update, headers={HDR: HEADER_SECRET})
+    assert r.status_code == 200
+    assert await _queued(fake_redis) == []
+
+
+async def test_failed_rate_limit_check_releases_dedupe_key(
+    client: httpx.AsyncClient, fake_redis: fakeredis.FakeAsyncRedis, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import budbyte_api.routes.telegram as tg_route
+
+    async def boom(*_a: object, **_k: object) -> bool:
+        raise ConnectionError("redis blip")
+
+    monkeypatch.setattr(tg_route, "_within_rate_limit", boom)
+    with pytest.raises(ConnectionError):
+        await client.post(
+            f"/tg/webhook/{PATH_SECRET}", json=tg_update(update_id=22), headers={HDR: HEADER_SECRET}
+        )
+    assert await fake_redis.get("tg:update:22") is None
+
+
+async def test_rate_limit_counter_always_carries_a_ttl(
+    client: httpx.AsyncClient, fake_redis: fakeredis.FakeAsyncRedis
+) -> None:
+    # A counter left without a TTL (e.g. EXPIRE failed once) would rate-limit the chat forever.
+    await fake_redis.set("rl:tg:chat:88", 5)
+    r = await client.post(
+        f"/tg/webhook/{PATH_SECRET}",
+        json=tg_update(update_id=300, chat_id=88),
+        headers={HDR: HEADER_SECRET},
+    )
+    assert r.status_code == 200
+    assert 0 < await fake_redis.ttl("rl:tg:chat:88") <= 60
+
+
 async def test_wrong_path_with_invalid_body_is_still_404(client: httpx.AsyncClient) -> None:
     # Body validation must not run before the secret check (endpoint must be undiscoverable).
     r = await client.post("/tg/webhook/guess", json={}, headers={HDR: HEADER_SECRET})

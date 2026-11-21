@@ -23,5 +23,5 @@ There is **no Cloudflare Worker**. The always-on api receives the Telegram webho
 ## Consequences
 - **Fewer moving parts:** one image, one config schema (`BUDBYTE_*` env).
 - **Neon budget:** 100 CU-h/month and scale-to-zero, so nothing may poll Postgres. Scheduling uses Redis, and connections are short-lived (`pool_recycle=300`).
-- **Fallback:** Render free (`infra/render.yaml`). The worker would run in-process behind a flag, and crons would move to GitHub Actions.
+- **Fallback:** Render free (`infra/render.yaml`). The worker would run in-process behind a flag, and crons would move to GitHub Actions. **Status:** that flag (`BUDBYTE_INPROCESS_WORKER`) is planned for Phase 2 and not built yet, so a Render deploy today runs the API with no worker: Telegram updates are queued but never processed. Do not use the fallback until the flag ships.
 - **Vercel Hobby is non-commercial.** We move the web app before monetising.

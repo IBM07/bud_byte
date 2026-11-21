@@ -12,21 +12,44 @@ import json
 import re
 import sys
 
+# An option value, possibly quoted: -C "C:/Users/Some One/repo" is one value.
+_VAL = r"(?:\"[^\"]*\"|'[^']*'|\S+)"
+# `git` / `git.exe` plus any global options before the subcommand, e.g. `git -C . push`,
+# `git -c k=v clean`, `git --git-dir=.git push`. Options that take a separate value
+# (-C, -c, --git-dir ...) consume it; other flags (--no-pager, -P ...) stand alone.
+_GIT = (
+    r"\bgit(?:\.exe)?[\"']?"  # closing quote of a quoted full path: "C:/.../git.exe" push
+    rf"(?:\s+(?:-[Cc]|--(?:git-dir|work-tree|namespace|exec-path|config-env))(?:=|\s+){_VAL}"
+    rf"|\s+--?[A-Za-z][\w-]*(?:={_VAL})?)*"
+    r"\s+"
+)
+# The rest of this command only: stop at ; & | or a newline, so flags of a chained
+# command (`git push origin x && ls -ld .`) are not read as git flags.
+_SEG = r"[^;&|\n]*"
+# A quote may wrap a refspec: git push origin "+HEAD:main" is still a force push.
+_Q = r"[\"']?"
+
 BLOCKED_PATTERNS = [
-    r"\bpush\b.*(\s--force\b|\s--force-with-lease\b|\s-[a-zA-Z]*f\b|\s\+\S)",
-    r"\bpush\b.*(\s--delete\b|\s-d\b|\s:\S)",
-    r"\bpush\b.*\s--mirror\b",
-    r"\breset\s+--hard\b",
-    r"\bgit\s+clean\s+-[a-z]*f",
-    r"\bgit\s+branch\s+-D\b",
-    r"\bgit\s+checkout\s+\.(\s|$)",
-    r"\bgit\s+restore\s+\.(\s|$)",
-    r"\bgit\s+filter-branch\b",
-    r"\bgit\s+update-ref\s+-d\b",
+    # Force: long options, -f anywhere in a bundle (-f, -fv, -vf), or a +refspec.
+    rf"{_GIT}push\b{_SEG}(\s--force\b|\s-[a-zA-Z]*f[a-zA-Z]*\b|\s{_Q}\+\S)",
+    # Delete: --delete, -d anywhere in a bundle, or a :refspec.
+    rf"{_GIT}push\b{_SEG}(\s--delete\b|\s-[a-zA-Z]*d[a-zA-Z]*\b|\s{_Q}:\S)",
+    rf"{_GIT}push\b{_SEG}\s--mirror\b",
+    rf"{_GIT}reset\b{_SEG}\s--hard\b",
+    rf"{_GIT}clean\b{_SEG}\s(-[a-zA-Z]*f|--force\b)",
+    # Force-delete a branch: -D (in any bundle), or delete + force in any spelling/order.
+    rf"{_GIT}branch\b{_SEG}\s-[a-zA-Z]*D",
+    rf"{_GIT}branch\b{_SEG}\s-[a-zA-Z]*(d[a-zA-Z]*f|f[a-zA-Z]*d)",
+    rf"{_GIT}branch\b{_SEG}\s(--delete\b|-[a-zA-Z]*d){_SEG}\s(--force\b|-[a-zA-Z]*f)",
+    rf"{_GIT}branch\b{_SEG}\s(--force\b|-[a-zA-Z]*f){_SEG}\s(--delete\b|-[a-zA-Z]*d)",
+    rf"{_GIT}checkout\s+\.(\s|$)",
+    rf"{_GIT}restore\s+\.(\s|$)",
+    rf"{_GIT}filter-branch\b",
+    rf"{_GIT}update-ref\s+-d\b",
 ]
 
 ASK_PATTERNS = [
-    r"\bgit\s+push\b",
+    rf"{_GIT}push\b",
 ]
 
 

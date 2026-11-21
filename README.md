@@ -34,7 +34,7 @@ just setup        # install Python + JS deps
 cp .env.example .env
 just check        # lint, types, unit tests, web build, codegen drift
 just e2e          # Playwright smoke test
-docker compose -f infra/compose.yml up db redis   # optional: real deps
+docker compose -f infra/compose.yml up -d db redis   # optional: real deps (background)
 just dev-api      # http://localhost:8000/docs
 just dev-worker
 just dev-web      # http://localhost:3000

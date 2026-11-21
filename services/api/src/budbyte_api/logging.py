@@ -13,9 +13,12 @@ import structlog
 _SECRET_KEYS = re.compile(r"(token|secret|password|authorization|api_key|dsn|cookie)", re.I)
 # Telegram bot tokens look like 123456:ABC-DEF... and appear in Bot API URLs.
 _BOT_TOKEN = re.compile(r"\d{6,}:[A-Za-z0-9_-]{20,}")
+# The webhook route is /tg/webhook/{path_secret}; access logs and Sentry request URLs carry it.
+_WEBHOOK_PATH_SECRET = re.compile(r"(/tg/webhook/)[^/\s?#\"']+")
 
 
 def redact_text(value: str) -> str:
+    value = _WEBHOOK_PATH_SECRET.sub(r"\1[REDACTED]", value)
     return _BOT_TOKEN.sub("[REDACTED_BOT_TOKEN]", value)
 
 
@@ -29,7 +32,7 @@ def _redact(_: Any, __: str, event_dict: MutableMapping[str, Any]) -> MutableMap
 
 
 class RedactingFilter(logging.Filter):
-    """Redacts bot tokens from stdlib records (uvicorn, httpx, sqlalchemy...)."""
+    """Redacts secrets (bot tokens, webhook path) from stdlib records (uvicorn, httpx...)."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         message = record.getMessage()

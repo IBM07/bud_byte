@@ -1,4 +1,4 @@
-"""Sentry setup with secret scrubbing (bot tokens live in Telegram API URLs)."""
+"""Sentry setup with secret scrubbing (bot tokens in Telegram API URLs, webhook path secret)."""
 
 from __future__ import annotations
 
@@ -36,5 +36,7 @@ def init_sentry(settings: Settings) -> None:
             traces_sample_rate=0.05,
             send_default_pii=False,
             before_send=scrub_event,
+            # Sampled performance transactions bypass before_send but carry request.url too.
+            before_send_transaction=scrub_event,
             before_breadcrumb=scrub_event,
         )

@@ -49,10 +49,16 @@ def _eq(a: str | None, b: str | None) -> bool:
 async def _within_rate_limit(redis: Any, chat_id: int) -> bool:
     """Fixed-window limiter per chat. Protects free-tier quotas from a single noisy chat."""
     key = f"rl:tg:chat:{chat_id}"
-    count = int(await redis.incr(key))
-    if count == 1:
+    # INCR and TTL in one round trip, then set the window only when the key has no TTL.
+    # This self-heals a counter left without a TTL (which would rate-limit the chat forever)
+    # and never slides an existing window. Plain commands, so any Redis version works.
+    async with redis.pipeline(transaction=True) as pipe:
+        pipe.incr(key)
+        pipe.ttl(key)
+        count, ttl = await pipe.execute()
+    if int(ttl) < 0:
         await redis.expire(key, 60)
-    return count <= CHAT_RATE_LIMIT_PER_MINUTE
+    return int(count) <= CHAT_RATE_LIMIT_PER_MINUTE
 
 
 @router.post("/tg/webhook/{path_secret}", response_model=Ack, include_in_schema=False)
@@ -88,10 +94,6 @@ async def telegram_webhook(
     if msg is None or msg.chat.type != "private":
         return Ack(ok=True)
 
-    if not await _within_rate_limit(redis, msg.chat.id):
-        log.warning("tg.update.rate_limited", chat_id=msg.chat.id)
-        return Ack(ok=True)
-
     job: dict[str, Any] = {
         "type": "tg.message",
         "update_id": update.update_id,
@@ -100,9 +102,13 @@ async def telegram_webhook(
         "text": msg.text or "",
     }
     try:
+        if not await _within_rate_limit(redis, msg.chat.id):
+            log.warning("tg.update.rate_limited", chat_id=msg.chat.id)
+            return Ack(ok=True)
         await enqueue(redis, Lane.INTERACTIVE, job)
     except Exception:
-        # Release the dedupe key so Telegram's retry of this update is processed, not dropped.
+        # Anything failing before the job is durably queued must release the dedupe key,
+        # so Telegram's retry of this update is processed instead of dropped as a duplicate.
         await redis.delete(dedupe_key)
         raise
     log.info("tg.update.enqueued", update_id=update.update_id)

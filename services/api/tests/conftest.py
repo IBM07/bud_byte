@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -19,6 +20,17 @@ PATH_SECRET = "path-secret-123"
 HEADER_SECRET = "header-secret-456"
 
 
+@pytest.fixture(autouse=True)
+def _isolate_app_env(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
+    """Hide exported BUDBYTE_* app settings from tests, as env_file=None does for .env.
+
+    BUDBYTE_TEST_* stay: they are the integration-test database/Redis URLs, not app settings.
+    """
+    for name in list(os.environ):
+        if name.startswith("BUDBYTE_") and not name.startswith("BUDBYTE_TEST_"):
+            monkeypatch.delenv(name)
+
+
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
@@ -28,6 +40,7 @@ def settings() -> Settings:
         telegram_bot_token=SecretStr("123:abc"),
         telegram_webhook_secret=SecretStr(HEADER_SECRET),
         telegram_path_secret=SecretStr(PATH_SECRET),
+        sentry_dsn=None,  # the client fixture must never initialise a real Sentry client
         run_migrations_on_startup=False,
     )
 

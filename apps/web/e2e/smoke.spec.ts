@@ -9,19 +9,31 @@ test("home page renders and shows API status", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "BudByte" })).toBeVisible();
 
-  const status = page.getByTestId("api-status");
-  await expect(status).toBeVisible();
-  await expect(status).toHaveAttribute("data-state", "ok");
-  await expect(page.getByTestId("check-database")).toHaveText("ok");
-  await expect(page.getByTestId("check-redis")).toHaveText("ok");
+  const status = page.getByRole("main").getByTestId("api-status");
+  await expect(status.getByRole("heading", { level: 2, name: "All systems go" })).toBeVisible();
+  await expect(page.getByRole("main").getByTestId("check-database")).toHaveText("ok");
+  await expect(page.getByRole("main").getByTestId("check-redis")).toHaveText("ok");
 
   expect(errors).toEqual([]);
 });
 
-test("respects reduced motion", async ({ browser }) => {
-  const context = await browser.newContext({ reducedMotion: "reduce" });
-  const page = await context.newPage();
-  await page.goto("/");
-  await expect(page.getByTestId("api-status")).toBeVisible();
-  await context.close();
-});
+// The status pulse must animate normally and stop entirely under prefers-reduced-motion.
+for (const [reducedMotion, animation] of [
+  ["no-preference", "ping"],
+  ["reduce", "none"],
+] as const) {
+  test(`status pulse animation is "${animation}" with reducedMotion=${reducedMotion}`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ reducedMotion });
+    const page = await context.newPage();
+    await page.goto("/");
+    const pulse = page
+      .getByRole("main")
+      .getByTestId("api-status")
+      .locator("span[aria-hidden] > span")
+      .first();
+    await expect(pulse).toHaveCSS("animation-name", animation);
+    await context.close();
+  });
+}
