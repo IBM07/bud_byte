@@ -74,6 +74,8 @@ def _decide(command: str) -> str:
         "git checkout -- ./",
         "git restore :/",  # whole worktree from the top
         "git restore -sSTABLE .",  # attached --source value is not --staged
+        "git restore --staged -SW .",  # W in a bundle restores the worktree too
+        "git restore -WS .",
         "git clean --for -d",  # unique long-option prefix of --force
         "git reset --har",
         "git push --forc origin main",
@@ -127,6 +129,7 @@ def test_normal_push_asks_the_user(command: str) -> None:
         "git restore --staged src/app.py",
         "git restore --staged .",  # only unstages
         "git restore -S .",
+        "git restore -qS .",  # bundled quiet + staged: still only unstages
         "git clean -n -d",
         "git log --format=%H -1",
         "echo 'git push --force is blocked'",  # text, not a git invocation

@@ -74,9 +74,11 @@ def _classify_git(sub: str, args: list[str]) -> str:
     if sub == "checkout" and _whole_tree(args):
         return BLOCK  # discard every unstaged change
     if sub == "restore" and _whole_tree(args):
-        # Exact flags only: in `-sSTABLE` the S is part of the --source value, not --staged.
-        staged = any(_is_long(a, "--staged") or a == "-S" for a in args)
-        worktree = any(_is_long(a, "--worktree") or a == "-W" for a in args)
+        # Read short bundles up to the value-taking -s: `-SW` is staged+worktree, but in
+        # `-sSTABLE` everything after s is the --source value, not flags.
+        flags = "".join(_short_bundle(a).split("s", 1)[0] for a in args)
+        staged = "S" in flags or _has(args, "--staged")
+        worktree = "W" in flags or _has(args, "--worktree")
         if not staged or worktree:  # `restore --staged .` only unstages, nothing is lost
             return BLOCK
     if sub == "filter-branch" or (sub == "update-ref" and "-d" in args):
