@@ -44,10 +44,11 @@ Everything here is free and needs no card. **Steps marked 👤 need you**, becau
 9. Check `https://<api-domain>/readyz` returns `{"status":"ok"}`.
 
 ## 4. Point Telegram at the api
-Run this with the prod env loaded locally, or as a one-off Northflank job:
+Run this locally with the prod env loaded (after `just setup`; `uv run` finds the script without activating the venv):
 ```
-budbyte-set-webhook https://<api-domain>
+uv run budbyte-set-webhook https://<api-domain>
 ```
+Or run it on Northflank without creating a new job (the Sandbox plan's job slots are already taken by the two crons above): open an existing job such as `cron-maint`, choose **Run job**, and override the command with `budbyte-set-webhook https://<api-domain>` for that one run.
 Then message your bot. You should get **`pong 🏓 DB time: …`**.
 
 ## 5. Observability 👤

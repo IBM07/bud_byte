@@ -33,6 +33,7 @@ test:
 test-integration:
     uv run pytest -q -m integration
 
+# Web env (API_BASE_URL) comes from apps/web/.env.local, not the root .env (Next.js reads its app dir)
 web-build:
     pnpm --filter @budbyte/web build
 
@@ -56,6 +57,7 @@ dev-api:
 dev-worker:
     uv run budbyte-worker
 
+# Web dev server; API_BASE_URL from apps/web/.env.local (see web-build)
 dev-web:
     pnpm --filter @budbyte/web dev
 

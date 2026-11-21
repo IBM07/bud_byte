@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ssl
 from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -11,7 +12,28 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 # libpq-only query params that asyncpg rejects
-_LIBPQ_ONLY = {"sslmode", "channel_binding", "options", "target_session_attrs"}
+_LIBPQ_ONLY = {"sslmode", "sslrootcert", "channel_binding", "options", "target_session_attrs"}
+_NON_VERIFYING_SSLMODES = {"allow", "prefer", "require"}
+
+
+def _ssl_arg(sslmode: str, sslrootcert: str | None) -> str | ssl.SSLContext:
+    """asyncpg ``ssl=`` value that keeps the URL's libpq sslmode semantics.
+
+    For verify-ca / verify-full we build the context ourselves: asyncpg's string modes demand
+    ``~/.postgresql/root.crt``, while managed Postgres (Neon) certs chain to public CAs, so the
+    system trust store (or an explicit ``sslrootcert``) is the right anchor.
+    """
+    if sslmode == "require" and sslrootcert:
+        sslmode = "verify-ca"  # libpq: require + an available root cert verifies the CA
+    if sslmode in ("verify-ca", "verify-full"):
+        cafile = None if sslrootcert in (None, "system") else sslrootcert
+        ctx = ssl.create_default_context(cafile=cafile)
+        ctx.check_hostname = sslmode == "verify-full"
+        return ctx
+    if sslmode in _NON_VERIFYING_SSLMODES:
+        return sslmode
+    # A typo (verify_full) must not silently become an unverified connection.
+    raise ValueError(f"unsupported sslmode in database URL: {sslmode!r}")
 
 
 def to_asyncpg_url(url: str) -> tuple[str, dict[str, Any]]:
@@ -25,11 +47,13 @@ def to_asyncpg_url(url: str) -> tuple[str, dict[str, Any]]:
     connect_args: dict[str, Any] = {}
     sslmode = query.get("sslmode")
     if sslmode and sslmode != "disable":
-        connect_args["ssl"] = "require"
+        connect_args["ssl"] = _ssl_arg(sslmode, query.get("sslrootcert"))
     if "-pooler" in (parts.hostname or ""):
         # Transaction-mode poolers (Neon/PgBouncer) can hand each statement a different
-        # backend, so asyncpg's per-connection prepared-statement cache must be off.
+        # backend, so both prepared-statement caches must be off: asyncpg's own and the
+        # one SQLAlchemy's asyncpg adapter keeps on top of it.
         connect_args["statement_cache_size"] = 0
+        connect_args["prepared_statement_cache_size"] = 0
         connect_args["prepared_statement_name_func"] = _unique_statement_name
     kept = {k: v for k, v in query.items() if k not in _LIBPQ_ONLY}
     return urlunsplit((scheme, parts.netloc, parts.path, urlencode(kept), "")), connect_args

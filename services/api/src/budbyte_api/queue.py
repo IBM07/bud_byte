@@ -25,8 +25,12 @@ PRIORITY: tuple[Lane, ...] = (Lane.INTERACTIVE, Lane.NUDGE, Lane.INGEST, Lane.EV
 Job = dict[str, Any]
 
 
+def encode_job(job: Job) -> str:
+    return json.dumps(job, separators=(",", ":"))
+
+
 async def enqueue(redis: Redis, lane: Lane, job: Job) -> None:
-    await cast(Any, redis.rpush(lane.key, json.dumps(job, separators=(",", ":"))))
+    await cast(Any, redis.rpush(lane.key, encode_job(job)))
 
 
 _LANE_BY_KEY = {lane.key: lane for lane in Lane}

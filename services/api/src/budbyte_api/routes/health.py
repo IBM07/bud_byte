@@ -6,12 +6,14 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Literal
 
+import structlog
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
 
 from budbyte_api import __version__
 
 router = APIRouter(tags=["health"])
+log = structlog.get_logger()
 
 CheckResult = Literal["ok", "error", "timeout", "not_configured"]
 Check = Callable[[], Awaitable[None]] | None
@@ -36,15 +38,18 @@ async def healthz() -> Health:
 CHECK_TIMEOUT_SECONDS = 2.0
 
 
-async def _run(check: Check) -> CheckResult:
+async def _run(name: str, check: Check) -> CheckResult:
     if check is None:
         return "not_configured"
     try:
         async with asyncio.timeout(CHECK_TIMEOUT_SECONDS):
             await check()
     except TimeoutError:
+        log.warning("readyz.check_timeout", check=name)
         return "timeout"
-    except Exception:
+    except Exception as exc:
+        # Type only: driver messages can echo connection strings. Never in the response.
+        log.warning("readyz.check_failed", check=name, error=type(exc).__name__)
         return "error"
     return "ok"
 
@@ -54,7 +59,7 @@ async def readyz(request: Request, response: Response) -> Readiness:
     """Readiness: dependencies (Postgres, Redis) are reachable."""
     checks: dict[str, Check] = request.app.state.readiness_checks
     names = list(checks)
-    results = await asyncio.gather(*(_run(checks[n]) for n in names))
+    results = await asyncio.gather(*(_run(n, checks[n]) for n in names))
     out: dict[str, CheckResult] = dict(zip(names, results, strict=True))
     ok = all(v == "ok" for v in out.values())
     if not ok:

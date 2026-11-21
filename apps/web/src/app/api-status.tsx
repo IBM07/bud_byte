@@ -24,7 +24,10 @@ export async function ApiStatusCard() {
           <span
             className={`absolute inline-flex h-full w-full rounded-full opacity-60 motion-safe:animate-ping ${DOT[tone]}`}
           />
-          <span className={`relative inline-flex h-3 w-3 rounded-full ${DOT[tone]}`} />
+          {/* Reduced motion: no expanding ring; the visible dot itself fades instead. */}
+          <span
+            className={`relative inline-flex h-3 w-3 rounded-full motion-reduce:animate-pulse ${DOT[tone]}`}
+          />
         </span>
         <h2 className="text-lg font-medium">{label}</h2>
       </div>

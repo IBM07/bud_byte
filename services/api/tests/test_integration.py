@@ -81,3 +81,23 @@ async def test_real_redis_queue_roundtrip() -> None:
         assert second == {"type": "b"}
     finally:
         await close(r)
+
+
+async def test_real_redis_rate_limiter_sets_ttl_once_per_window() -> None:
+    # Fakeredis is not Redis: prove the MULTI pipeline + TTL repair on the real server.
+    from budbyte_api.routes.telegram import (
+        CHAT_RATE_LIMIT_PER_MINUTE,
+        _within_rate_limit,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    assert REDIS_URL
+    r = redis_from_url(REDIS_URL)
+    key = "rl:tg:chat:-999"
+    try:
+        await r.delete(key)
+        results = [await _within_rate_limit(r, -999) for _ in range(CHAT_RATE_LIMIT_PER_MINUTE + 1)]
+        assert results == [True] * CHAT_RATE_LIMIT_PER_MINUTE + [False]
+        assert 0 < await r.ttl(key) <= 60
+    finally:
+        await r.delete(key)
+        await close(r)

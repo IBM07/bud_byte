@@ -13,15 +13,23 @@ import structlog
 _SECRET_KEYS = re.compile(r"(token|secret|password|authorization|api_key|dsn|cookie)", re.I)
 # Telegram bot tokens look like 123456:ABC-DEF... and appear in Bot API URLs.
 _BOT_TOKEN = re.compile(r"\d{6,}:[A-Za-z0-9_-]{20,}")
+# The webhook route is /tg/webhook/{path_secret}; access logs and Sentry request URLs carry it.
+_WEBHOOK_PATH_SECRET = re.compile(r"(/tg/webhook/)[^/\s?#\"']+")
 
 
 def redact_text(value: str) -> str:
+    value = _WEBHOOK_PATH_SECRET.sub(r"\1[REDACTED]", value)
     return _BOT_TOKEN.sub("[REDACTED_BOT_TOKEN]", value)
+
+
+def is_secret_key(key: str) -> bool:
+    """True for field/header names that hold credentials (token, secret, password...)."""
+    return _SECRET_KEYS.search(key) is not None
 
 
 def _redact(_: Any, __: str, event_dict: MutableMapping[str, Any]) -> MutableMapping[str, Any]:
     for key, value in list(event_dict.items()):
-        if _SECRET_KEYS.search(key):
+        if is_secret_key(key):
             event_dict[key] = "[REDACTED]"
         elif isinstance(value, str):
             event_dict[key] = redact_text(value)
@@ -29,9 +37,13 @@ def _redact(_: Any, __: str, event_dict: MutableMapping[str, Any]) -> MutableMap
 
 
 class RedactingFilter(logging.Filter):
-    """Redacts bot tokens from stdlib records (uvicorn, httpx, sqlalchemy...)."""
+    """Redacts secrets (bot tokens, webhook path) from stdlib records (uvicorn, httpx...)."""
 
     def filter(self, record: logging.LogRecord) -> bool:
+        # Redact inside the args first and keep them a tuple: uvicorn's AccessFormatter
+        # unpacks record.args into (client, method, path, http_version, status).
+        if isinstance(record.args, tuple):
+            record.args = tuple(redact_text(a) if isinstance(a, str) else a for a in record.args)
         message = record.getMessage()
         redacted = redact_text(message)
         if record.exc_info:
@@ -62,6 +74,12 @@ def configure_logging(level: str = "INFO", *, json: bool = True) -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(numeric)
+    # Under plain `uvicorn` (default log config) these loggers have their own handlers and do
+    # not propagate, so the root handler's filter never sees them. Logger-level filters do.
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        uv_logger = logging.getLogger(name)
+        if not any(isinstance(f, RedactingFilter) for f in uv_logger.filters):
+            uv_logger.addFilter(RedactingFilter())
     # httpx logs full request URLs, which contain the bot token.
     logging.getLogger("httpx").setLevel(logging.WARNING)
 

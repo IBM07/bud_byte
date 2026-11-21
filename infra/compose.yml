@@ -1,7 +1,8 @@
 # Local full stack. Requires Docker.
 #   docker compose -f infra/compose.yml up --build
-# Just dependencies (for running api/worker with `just dev`):
-#   docker compose -f infra/compose.yml up db redis
+# Just dependencies (for running api/worker with `just dev-api` / `just dev-worker`):
+#   docker compose -f infra/compose.yml up -d db redis
+# Published ports bind to 127.0.0.1 only, so nothing here is reachable from your LAN.
 name: budbyte
 
 services:
@@ -10,9 +11,20 @@ services:
     environment:
       POSTGRES_USER: budbyte
       # Throwaway local-only password; override with LOCAL_PG_PASSWORD if you like.
+      # - It is spliced into the api/worker URLs below unencoded, so use URL-safe
+      #   characters only (letters, digits, - . _ ~). Compose cannot percent-encode.
+      # - Postgres only reads it when the db-data volume is first created. To change it
+      #   later, either reset local data (`docker compose -f infra/compose.yml down -v`)
+      #   or keep the data:
+      #   1. docker compose -f infra/compose.yml exec db psql -U budbyte -c "\password budbyte"
+      #      (psql prompts for the new password, so it never lands in shell history)
+      #   2. set LOCAL_PG_PASSWORD to it, and update the password in BUDBYTE_DATABASE_URL
+      #      in your .env (used by `just dev-api` / `just dev-worker` on the host)
+      #   3. recreate the containers so they pick it up:
+      #      docker compose -f infra/compose.yml up -d --force-recreate api worker
       POSTGRES_PASSWORD: ${LOCAL_PG_PASSWORD:-budbyte}
       POSTGRES_DB: budbyte
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     volumes: [db-data:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U budbyte"]
@@ -22,7 +34,7 @@ services:
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
-    ports: ["6379:6379"]
+    ports: ["127.0.0.1:6379:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -34,7 +46,7 @@ services:
     environment:
       BUDBYTE_DATABASE_URL: postgresql://budbyte:${LOCAL_PG_PASSWORD:-budbyte}@db:5432/budbyte
       BUDBYTE_REDIS_URL: redis://redis:6379/0
-    ports: ["8000:8000"]
+    ports: ["127.0.0.1:8000:8000"]
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_healthy }

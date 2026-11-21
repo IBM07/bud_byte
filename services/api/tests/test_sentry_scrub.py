@@ -1,6 +1,10 @@
 from typing import Any
 
+import pytest
+from pydantic import SecretStr
+
 from budbyte_api.observability import scrub_event
+from budbyte_api.settings import Settings
 
 TOKEN = "1234567890:AAH" + "y" * 32
 
@@ -16,3 +20,36 @@ def test_scrub_event_removes_bot_tokens_everywhere() -> None:
     assert out is not None
     assert TOKEN not in repr(out)
     assert out["extra"]["nested"][1] == 3
+
+
+def test_init_sentry_scrubs_transactions_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Sampled performance transactions skip before_send; they carry request.url as well.
+    import budbyte_api.observability as obs
+
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(obs.sentry_sdk, "init", lambda **kw: seen.update(kw))  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    obs.init_sentry(Settings(environment="test", sentry_dsn=SecretStr("https://k@o0.ingest.io/1")))
+    for hook in ("before_send", "before_send_transaction", "before_breadcrumb"):
+        req = {"url": "https://a/tg/webhook/s3cr3t", "method": "POST"}
+        out = seen[hook]({"request": req}, {})
+        assert out["request"] == {"url": "https://a/tg/webhook/[REDACTED]", "method": "POST"}
+
+
+def test_scrub_event_redacts_secret_named_headers() -> None:
+    event: dict[str, Any] = {
+        "request": {
+            "headers": {
+                "x-telegram-bot-api-secret-token": "header-secret-456",
+                "content-type": "application/json",
+            }
+        }
+    }
+    headers = scrub_event(event, {})["request"]["headers"]
+    assert headers["x-telegram-bot-api-secret-token"] == "[REDACTED]"
+    assert headers["content-type"] == "application/json"
+
+
+def test_scrub_event_removes_webhook_path_secret_from_request_url() -> None:
+    event: dict[str, Any] = {"request": {"url": "https://api.example.com/tg/webhook/s3cr3t"}}
+    out = scrub_event(event, {})
+    assert out["request"]["url"] == "https://api.example.com/tg/webhook/[REDACTED]"

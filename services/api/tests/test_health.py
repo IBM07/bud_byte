@@ -1,4 +1,23 @@
 import httpx
+from structlog.testing import capture_logs
+
+from budbyte_api.routes.health import _run  # pyright: ignore[reportPrivateUsage]
+
+
+async def test_failed_readiness_check_logs_a_diagnostic_without_the_message() -> None:
+    async def failing() -> None:
+        raise ConnectionRefusedError("password=hunter2 rejected")
+
+    with capture_logs() as logs:
+        assert await _run("database", failing) == "error"
+    assert logs == [
+        {
+            "event": "readyz.check_failed",
+            "check": "database",
+            "error": "ConnectionRefusedError",
+            "log_level": "warning",
+        }
+    ]
 
 
 async def test_healthz_is_always_ok(client: httpx.AsyncClient) -> None:

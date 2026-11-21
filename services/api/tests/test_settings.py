@@ -1,3 +1,5 @@
+import ssl
+
 import pytest
 from pydantic import SecretStr, ValidationError
 
@@ -34,7 +36,34 @@ def test_pooled_neon_url_disables_asyncpg_statement_cache() -> None:
         "postgresql://u:p@ep-x-pooler.eu-central-1.aws.neon.tech/db?sslmode=require"
     )
     assert connect_args["statement_cache_size"] == 0
+    # SQLAlchemy's asyncpg adapter keeps its own statement cache on top of asyncpg's.
+    assert connect_args["prepared_statement_cache_size"] == 0
     assert callable(connect_args["prepared_statement_name_func"])
+
+
+@pytest.mark.parametrize(("mode", "check_hostname"), [("verify-full", True), ("verify-ca", False)])
+def test_certificate_verifying_sslmodes_are_not_downgraded(mode: str, check_hostname: bool) -> None:
+    # Our own context on the system CA store: asyncpg's string modes demand ~/.postgresql/root.crt.
+    _url, connect_args = to_asyncpg_url(f"postgresql://u:p@db.example.com/db?sslmode={mode}")
+    ctx = connect_args["ssl"]
+    assert isinstance(ctx, ssl.SSLContext)
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+    assert ctx.check_hostname is check_hostname
+
+
+def test_require_with_sslrootcert_verifies_the_ca_like_libpq() -> None:
+    # libpq: sslmode=require plus an available root cert behaves like verify-ca.
+    url, connect_args = to_asyncpg_url("postgresql://u:p@h/db?sslmode=require&sslrootcert=system")
+    assert "sslrootcert" not in url
+    ctx = connect_args["ssl"]
+    assert isinstance(ctx, ssl.SSLContext)
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+    assert ctx.check_hostname is False
+
+
+def test_unknown_sslmode_fails_loudly_instead_of_downgrading() -> None:
+    with pytest.raises(ValueError, match="sslmode"):
+        to_asyncpg_url("postgresql://u:p@h/db?sslmode=verify_full")  # typo for verify-full
 
 
 def test_blank_env_values_are_treated_as_unset() -> None:
