@@ -22,9 +22,14 @@ def redact_text(value: str) -> str:
     return _BOT_TOKEN.sub("[REDACTED_BOT_TOKEN]", value)
 
 
+def is_secret_key(key: str) -> bool:
+    """True for field/header names that hold credentials (token, secret, password...)."""
+    return _SECRET_KEYS.search(key) is not None
+
+
 def _redact(_: Any, __: str, event_dict: MutableMapping[str, Any]) -> MutableMapping[str, Any]:
     for key, value in list(event_dict.items()):
-        if _SECRET_KEYS.search(key):
+        if is_secret_key(key):
             event_dict[key] = "[REDACTED]"
         elif isinstance(value, str):
             event_dict[key] = redact_text(value)
@@ -65,6 +70,12 @@ def configure_logging(level: str = "INFO", *, json: bool = True) -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(numeric)
+    # Under plain `uvicorn` (default log config) these loggers have their own handlers and do
+    # not propagate, so the root handler's filter never sees them. Logger-level filters do.
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        uv_logger = logging.getLogger(name)
+        if not any(isinstance(f, RedactingFilter) for f in uv_logger.filters):
+            uv_logger.addFilter(RedactingFilter())
     # httpx logs full request URLs, which contain the bot token.
     logging.getLogger("httpx").setLevel(logging.WARNING)
 

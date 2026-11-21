@@ -17,10 +17,11 @@ test("home page renders and shows API status", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-// The status pulse must animate normally and stop entirely under prefers-reduced-motion.
+// The status pulse scales out ("ping") normally; under prefers-reduced-motion the movement
+// is replaced by an opacity fade ("pulse"), so the live feedback stays (docs/agents/ui.md).
 for (const [reducedMotion, animation] of [
   ["no-preference", "ping"],
-  ["reduce", "none"],
+  ["reduce", "pulse"],
 ] as const) {
   test(`status pulse animation is "${animation}" with reducedMotion=${reducedMotion}`, async ({
     browser,

@@ -15,8 +15,12 @@ services:
       #   characters only (letters, digits, - . _ ~). Compose cannot percent-encode.
       # - Postgres only reads it when the db-data volume is first created. To change it
       #   later, either reset local data (`docker compose -f infra/compose.yml down -v`)
-      #   or keep the data and run, before changing the variable:
-      #   docker compose -f infra/compose.yml exec db psql -U budbyte -c "ALTER USER budbyte PASSWORD 'new-value'"
+      #   or keep the data:
+      #   1. docker compose -f infra/compose.yml exec db psql -U budbyte -c "ALTER USER budbyte PASSWORD 'new-value'"
+      #   2. set LOCAL_PG_PASSWORD=new-value, and update the password in BUDBYTE_DATABASE_URL
+      #      in your .env (used by `just dev-api` / `just dev-worker` on the host)
+      #   3. recreate the containers so they pick it up:
+      #      docker compose -f infra/compose.yml up -d --force-recreate api worker
       POSTGRES_PASSWORD: ${LOCAL_PG_PASSWORD:-budbyte}
       POSTGRES_DB: budbyte
     ports: ["127.0.0.1:5432:5432"]

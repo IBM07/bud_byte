@@ -23,12 +23,17 @@ def _ssl_arg(sslmode: str, sslrootcert: str | None) -> str | ssl.SSLContext:
     ``~/.postgresql/root.crt``, while managed Postgres (Neon) certs chain to public CAs, so the
     system trust store (or an explicit ``sslrootcert``) is the right anchor.
     """
+    if sslmode == "require" and sslrootcert:
+        sslmode = "verify-ca"  # libpq: require + an available root cert verifies the CA
     if sslmode in ("verify-ca", "verify-full"):
         cafile = None if sslrootcert in (None, "system") else sslrootcert
         ctx = ssl.create_default_context(cafile=cafile)
         ctx.check_hostname = sslmode == "verify-full"
         return ctx
-    return sslmode if sslmode in _NON_VERIFYING_SSLMODES else "require"
+    if sslmode in _NON_VERIFYING_SSLMODES:
+        return sslmode
+    # A typo (verify_full) must not silently become an unverified connection.
+    raise ValueError(f"unsupported sslmode in database URL: {sslmode!r}")
 
 
 def to_asyncpg_url(url: str) -> tuple[str, dict[str, Any]]:

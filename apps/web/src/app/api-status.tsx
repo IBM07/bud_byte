@@ -22,7 +22,7 @@ export async function ApiStatusCard() {
       <div className="flex items-center gap-3">
         <span className="relative flex h-3 w-3" aria-hidden="true">
           <span
-            className={`absolute inline-flex h-full w-full rounded-full opacity-60 motion-safe:animate-ping ${DOT[tone]}`}
+            className={`absolute inline-flex h-full w-full rounded-full opacity-60 motion-safe:animate-ping motion-reduce:animate-pulse ${DOT[tone]}`}
           />
           <span className={`relative inline-flex h-3 w-3 rounded-full ${DOT[tone]}`} />
         </span>

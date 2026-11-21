@@ -1,5 +1,4 @@
 import ssl
-from pathlib import Path
 
 import pytest
 from pydantic import SecretStr, ValidationError
@@ -52,10 +51,19 @@ def test_certificate_verifying_sslmodes_are_not_downgraded(mode: str, check_host
     assert ctx.check_hostname is check_hostname
 
 
-def test_sslrootcert_is_consumed_not_forwarded_to_asyncpg(tmp_path: Path) -> None:
-    missing = tmp_path / "nope.crt"
-    url, _ = to_asyncpg_url(f"postgresql://u:p@h/db?sslmode=require&sslrootcert={missing}")
+def test_require_with_sslrootcert_verifies_the_ca_like_libpq() -> None:
+    # libpq: sslmode=require plus an available root cert behaves like verify-ca.
+    url, connect_args = to_asyncpg_url("postgresql://u:p@h/db?sslmode=require&sslrootcert=system")
     assert "sslrootcert" not in url
+    ctx = connect_args["ssl"]
+    assert isinstance(ctx, ssl.SSLContext)
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+    assert ctx.check_hostname is False
+
+
+def test_unknown_sslmode_fails_loudly_instead_of_downgrading() -> None:
+    with pytest.raises(ValueError, match="sslmode"):
+        to_asyncpg_url("postgresql://u:p@h/db?sslmode=verify_full")  # typo for verify-full
 
 
 def test_blank_env_values_are_treated_as_unset() -> None:

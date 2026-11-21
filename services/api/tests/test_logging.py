@@ -31,6 +31,14 @@ def test_access_log_record_has_webhook_path_secret_scrubbed() -> None:
     assert "s3cr3t" not in record.getMessage()
 
 
+def test_uvicorn_loggers_redact_even_with_their_own_handlers() -> None:
+    # Plain `uvicorn --factory` (default log config) gives uvicorn.access its own handler with
+    # propagate=False, so a filter on the root handler alone would never see access lines.
+    configure_logging("INFO", json=True)
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        assert any(isinstance(f, RedactingFilter) for f in logging.getLogger(name).filters)
+
+
 def test_bot_token_is_redacted_from_exception_text(capsys: pytest.CaptureFixture[str]) -> None:
     configure_logging("INFO", json=True)
     log = structlog.get_logger()

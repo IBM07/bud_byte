@@ -54,6 +54,19 @@ def _decide(command: str) -> str:
         "git branch --delete --force old",
         "git branch -d -f old",
         "git branch -df old",
+        # Shell quoting must not hide the destructive part (review round 2).
+        "git clean -e 'cache;old' -fd",  # quoted separator inside an argument
+        "git push origin 'a|b' --force",
+        "git push '--force' origin main",  # quoted flag
+        "git reset '--hard'",
+        "git -C/cabal push --force",  # attached option value
+        "git push \\\n  --force origin main",  # backslash line continuation
+        "git checkout -- .",
+        "git restore --worktree .",
+        "git restore --staged --worktree -- .",
+        'bash -c "git push -f origin main"',  # nested shell string
+        "git status; git push -f",
+        "git status\ngit push -f",
     ],
 )
 def test_destructive_git_is_blocked(command: str) -> None:
@@ -76,6 +89,9 @@ def test_destructive_git_is_blocked(command: str) -> None:
         "git.exe push origin main",  # PowerShell / Windows spelling
         "& 'C:/Program Files/Git/cmd/git.exe' push origin main",  # PowerShell call operator
         "git push -u origin feat/x && ls -ld .",  # flags of a later command are not push flags
+        'git -c core.sshCommand="ssh -i /tmp/id" push origin main',  # partially quoted value
+        "git -C/cabal push origin main",  # attached option value
+        "git --no-pager -C . push",
     ],
 )
 def test_normal_push_asks_the_user(command: str) -> None:
@@ -92,6 +108,11 @@ def test_normal_push_asks_the_user(command: str) -> None:
         'git commit -m "push docs" && rm -rf build',
         "git branch -d merged-branch",  # safe delete (refuses unmerged work)
         "git clean -n",  # dry run
+        "git checkout -- src/app.py",  # restoring one named file is not a wholesale discard
+        "git restore --staged src/app.py",
+        "echo 'git push --force is blocked'",  # text, not a git invocation
+        # A heredoc body is data: words like "git push --force" in a commit message are not run.
+        "git commit -F - <<'EOF'\nfix: guard git push --force\n\ngit reset --hard is blocked\nEOF",
     ],
 )
 def test_safe_git_is_allowed(command: str) -> None:
